@@ -79,7 +79,35 @@ class PipelineBuilderAgent:
 
         # Separate features and target
         X = df.drop(columns=[target_col]).copy()
-        y = df[target_col]
+        y = df[target_col].copy()
+
+        # Normalize missing target markers (Excel/CSV exports)
+        if y.dtype == object:
+            y = y.replace(
+                ["", " ", "NA", "N/A", "na", "null", "None"],
+                np.nan,
+            )
+            y = y.astype(str).str.strip()
+            y = y.replace({"": np.nan, "nan": np.nan, "NaN": np.nan})
+
+        # Drop rows with missing target (required for sklearn)
+        missing_target = int(y.isna().sum())
+        if missing_target > 0:
+            valid_mask = y.notna()
+            X = X.loc[valid_mask].reset_index(drop=True)
+            y = y.loc[valid_mask].reset_index(drop=True)
+            df = df.loc[valid_mask].reset_index(drop=True)
+            self.memory.set("dataset", df)
+            print(
+                f"  [Pipeline Builder] Dropped {missing_target} rows "
+                f"with missing target '{target_col}'"
+            )
+
+        if len(y) < 50:
+            raise ValueError(
+                f"Only {len(y)} rows remain after removing missing targets. "
+                f"Need at least 50 rows to train."
+            )
 
         # Coerce numeric strings (common with Excel uploads)
         for col in X.columns:
@@ -163,10 +191,17 @@ class PipelineBuilderAgent:
         task_type = self.memory.get("task_type")
         if task_type == "classification":
             le = LabelEncoder()
-            y_encoded = le.fit_transform(y)
+            y_encoded = le.fit_transform(y.astype(str))
             self.memory.set("label_encoder", le)
         else:
-            y_encoded = y.values
+            y_numeric = pd.to_numeric(y, errors="coerce")
+            if y_numeric.isna().any():
+                bad = int(y_numeric.isna().sum())
+                raise ValueError(
+                    f"Target column '{target_col}' has {bad} non-numeric "
+                    f"or missing values after cleaning."
+                )
+            y_encoded = y_numeric.values
 
         # Store everything in memory
         self.memory.set("preprocessing_pipeline", preprocessor)

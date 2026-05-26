@@ -254,10 +254,35 @@ class TrainerAgent:
             self.memory.set("preprocessing_pipeline", preprocessor)
 
         try:
-            y = np.array(y)
+            y = np.asarray(y)
         except Exception as e:
             raise ValueError(
                 f"Could not process target column: {str(e)}"
+            )
+
+        # Drop any remaining rows with invalid targets
+        if np.issubdtype(y.dtype, np.number):
+            valid_mask = np.isfinite(y)
+        else:
+            import pandas as pd
+            valid_mask = ~pd.isna(y)
+
+        if not valid_mask.all():
+            dropped = int((~valid_mask).sum())
+            print(
+                f"  [Trainer] Dropping {dropped} rows with "
+                f"invalid target values"
+            )
+            if hasattr(X, "iloc"):
+                X = X.iloc[valid_mask].reset_index(drop=True)
+            else:
+                X = X[valid_mask]
+            y = y[valid_mask]
+
+        if len(y) < 50:
+            raise ValueError(
+                f"Only {len(y)} rows available after target cleaning. "
+                f"Need at least 50 rows to train."
             )
 
         if y.dtype == object:

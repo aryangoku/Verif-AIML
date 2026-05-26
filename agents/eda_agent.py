@@ -35,8 +35,12 @@ class EDAAgent:
 
         report = {}
 
-        # Detect task type
-        target_series = df[target_col]
+        # Detect task type (ignore missing targets)
+        target_series = df[target_col].dropna()
+        if len(target_series) == 0:
+            raise ValueError(
+                f"Target column '{target_col}' has no valid values."
+            )
         unique_vals = target_series.nunique()
 
         # Edge case: text column with too many unique values
