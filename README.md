@@ -190,8 +190,8 @@ Monitoring Detection   | Self-healing loop with execution logging
 
 Clone the repo
 
-    git clone https://github.com/YOURUSERNAME/verifai-ml.git
-    cd verifai-ml
+    git clone https://github.com/aryangoku/Verif-AIML.git
+    cd Verif-AIML
 
 Create virtual environment
 
